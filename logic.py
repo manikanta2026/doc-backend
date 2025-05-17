@@ -1,9 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import fitz
+import fitz  # PyMuPDF
 import google.generativeai as genai
 import os
-from dotenv import load_dotenv  # Import dotenv to load environment variables
+from dotenv import load_dotenv  # For loading environment variables
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,7 +14,6 @@ if not api_key:
     raise ValueError("API key for Generative AI is not set. Please ensure that 'GOOGLE_API_KEY' is set in your .env file or as an environment variable.")
 
 genai.configure(api_key=api_key)
-
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 app = Flask(__name__)
@@ -50,33 +49,31 @@ def generate_summary(text, summary_type):
     response = model.generate_content(prompt)
     
     if response:
-        # Format the summary with proper bullet points and spacing
         summary = response.text.strip()
         lines = summary.split('\n')
         formatted_lines = []
-        
+
         for line in lines:
             line = line.strip()
             if line:
-                # Remove any existing bullet points or stars at the start
-                line = line.lstrip('•').lstrip('*').lstrip('-').strip()
+                # Remove existing bullet characters
+                line = line.lstrip('•*-').strip()
                 
-                # Handle bold text conversion
+                # Handle bold markdown and format
                 parts = line.split('**')
                 formatted_line = ''
                 for i, part in enumerate(parts):
-                    if i % 2 == 1:  # Odd indices are between ** pairs
+                    if i % 2 == 1:
                         formatted_line += f'<strong>{part}</strong>'
                     else:
                         formatted_line += part
                 
-                # Add bullet point
                 formatted_line = '• ' + formatted_line
                 formatted_lines.append(formatted_line)
-        
+
         formatted_summary = '<br>'.join(formatted_lines)
         return formatted_summary
-    
+
     return "Summary generation failed."
 
 def generate_qa(text):
@@ -87,30 +84,21 @@ def generate_qa(text):
     )
     response = model.generate_content(prompt)
     if response:
-        # Ensure the output is structured with questions and answers on new lines
         text = response.text.strip()
-        
-        # Split the text into lines
         lines = text.split("\n")
-        
-        # Iterate through each line and format it
         formatted_text = []
+
         for line in lines:
-            line = line.strip()  # Remove leading/trailing whitespace
-            if line.startswith("Question:"):
-                formatted_text.append(f"<br><strong>{line}</strong>")  # Add <br> and make the question bold
-            elif line.startswith("Answer:"):
-                formatted_text.append(f"<br><strong>{line}</strong>")  # Add <br> and make the answer bold
+            line = line.strip()
+            if line.startswith("Question:") or line.startswith("Answer:"):
+                formatted_text.append(f"<br><strong>{line}</strong>")
             else:
-                formatted_text.append(line)  # Keep other lines as is
-        
-        # Join the formatted lines into a single string
+                formatted_text.append(line)
+
         formatted_response = "".join(formatted_text).strip()
-        
         return formatted_response
     else:
         return "Response generation failed."
-
 
 @app.route('/summary', methods=['POST'])
 def summarize_pdf():
@@ -119,13 +107,12 @@ def summarize_pdf():
     
     if not file:
         return jsonify({"error": "No file provided"}), 400
-    
+
     pdf_text = extract_text_from_pdf(file)
     if not pdf_text:
         return jsonify({"error": "Failed to extract text from the PDF"}), 500
-    
+
     result = generate_summary(pdf_text, summary_type)
-    
     return jsonify({"summary": result})
 
 @app.route('/qa', methods=['POST'])
@@ -134,14 +121,15 @@ def qa_pdf():
     
     if not file:
         return jsonify({"error": "No file provided"}), 400
-    
+
     pdf_text = extract_text_from_pdf(file)
     if not pdf_text:
         return jsonify({"error": "Failed to extract text from the PDF"}), 500
-    
+
     result = generate_qa(pdf_text)
-    
     return jsonify({"qa": result})
-    if __name__ == "__main__":
+
+
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
