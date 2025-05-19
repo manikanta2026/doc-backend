@@ -3,3 +3,5 @@ flask-cors
 PyMuPDF
 google-generativeai
 dotenv
+python-docx 
+python-pptx
