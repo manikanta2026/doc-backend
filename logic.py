@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import fitz  # PyMuPDF
+from docx import Document
+from pptx import Presentation
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv  # For loading environment variables
@@ -19,13 +21,32 @@ model = genai.GenerativeModel("gemini-2.0-flash")
 app = Flask(__name__)
 CORS(app)
 
-def extract_text_from_pdf(pdf_file):
-    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-    text = ""
-    for page_num in range(len(doc)):
-        page = doc.load_page(page_num)
-        text += page.get_text()
-    return text
+def extract_text(file):
+    filename = file.filename.lower()
+    
+    if filename.endswith(".pdf"):
+        doc = fitz.open(stream=file.read(), filetype="pdf")
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        return text
+    
+    elif filename.endswith(".docx"):
+        doc = Document(file)
+        text = "\n".join([para.text for para in doc.paragraphs])
+        return text
+
+    elif filename.endswith(".pptx"):
+        prs = Presentation(file)
+        text = []
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text.append(shape.text)
+        return "\n".join(text)
+
+    else:
+        return None
 
 def generate_summary(text, summary_type):
     if summary_type == "small":
@@ -56,10 +77,8 @@ def generate_summary(text, summary_type):
         for line in lines:
             line = line.strip()
             if line:
-                # Remove existing bullet characters
                 line = line.lstrip('•*-').strip()
                 
-                # Handle bold markdown and format
                 parts = line.split('**')
                 formatted_line = ''
                 for i, part in enumerate(parts):
@@ -101,32 +120,32 @@ def generate_qa(text):
         return "Response generation failed."
 
 @app.route('/summary', methods=['POST'])
-def summarize_pdf():
+def summarize_file():
     file = request.files.get('file')
     summary_type = request.form.get('summary_type', 'small')
     
     if not file:
         return jsonify({"error": "No file provided"}), 400
 
-    pdf_text = extract_text_from_pdf(file)
-    if not pdf_text:
-        return jsonify({"error": "Failed to extract text from the PDF"}), 500
+    text = extract_text(file)
+    if not text:
+        return jsonify({"error": "Failed to extract text from the uploaded file. Make sure it’s a .pdf, .docx, or .pptx"}), 500
 
-    result = generate_summary(pdf_text, summary_type)
+    result = generate_summary(text, summary_type)
     return jsonify({"summary": result})
 
 @app.route('/qa', methods=['POST'])
-def qa_pdf():
+def qa_file():
     file = request.files.get('file')
     
     if not file:
         return jsonify({"error": "No file provided"}), 400
 
-    pdf_text = extract_text_from_pdf(file)
-    if not pdf_text:
-        return jsonify({"error": "Failed to extract text from the PDF"}), 500
+    text = extract_text(file)
+    if not text:
+        return jsonify({"error": "Failed to extract text from the uploaded file. Make sure it’s a .pdf, .docx, or .pptx"}), 500
 
-    result = generate_qa(pdf_text)
+    result = generate_qa(text)
     return jsonify({"qa": result})
 
 
