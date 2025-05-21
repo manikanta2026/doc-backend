@@ -86,33 +86,57 @@ def generate_summary(text, summary_type):
                         formatted_line += f'<strong>{part}</strong>'
                     else:
                         formatted_line += part
-                
+        
                 formatted_line = '• ' + formatted_line
-                formatted_lines.append(formatted_line)
+                # Add extra spacing after each bullet point
+                formatted_lines.append(formatted_line + '<br><br>')
 
-        formatted_summary = '<br>'.join(formatted_lines)
-        return formatted_summary
+    formatted_summary = ''.join(formatted_lines)
+    return formatted_summary
 
     return "Summary generation failed."
 
-def generate_qa(text):
-    prompt = (
-        f"Generate question-answer pairs from the following text strictly in the format:\n\n"
-        f"Question:\n[Question here]\nAnswer:\n[Answer here]\n\n"
-        f"Ensure each question and answer are on separate lines.\n\n{text}"
-    )
+def generate_qa(text, level="small"):
+    if level == "small":
+        prompt = (
+            f"Generate a few (2-3) high-level, abstract question-answer pairs from the following text strictly in the format:\n\n"
+            f"Question:\n[Question here]\nAnswer:\n[Answer here]\n\n"
+            f"Ensure each question and answer are on separate lines. Focus on the main ideas only.\n\n{text}"
+        )
+    elif level == "medium":
+        prompt = (
+            f"Generate several (4-6) question-answer pairs from the following text strictly in the format:\n\n"
+            f"Question:\n[Question here]\nAnswer:\n[Answer here]\n\n"
+            f"Ensure each question and answer are on separate lines. Include both abstract and some detailed questions.\n\n{text}"
+        )
+    else:  # large
+        prompt = (
+            f"Generate many (7 or more) detailed question-answer pairs from the following text strictly in the format:\n\n"
+            f"Question:\n[Question here]\nAnswer:\n[Answer here]\n\n"
+            f"Ensure each question and answer are on separate lines. Cover all levels: abstract, intermediate, and detailed questions.\n\n{text}"
+        )
     response = model.generate_content(prompt)
     if response:
         text = response.text.strip()
         lines = text.split("\n")
         formatted_text = []
 
+        current_block = []
         for line in lines:
             line = line.strip()
-            if line.startswith("Question:") or line.startswith("Answer:"):
-                formatted_text.append(f"<br><strong>{line}</strong>")
+            if line.startswith("Question:"):
+                # If there's a previous block, add it with spacing
+                if current_block:
+                    formatted_text.append("".join(current_block) + "<br><br>")
+                    current_block = []
+                current_block.append(f"<br><strong>{line}</strong>")
+            elif line.startswith("Answer:"):
+                current_block.append(f"<br><strong>{line}</strong>")
             else:
-                formatted_text.append(line)
+                current_block.append(line)
+        # Add the last block if present
+        if current_block:
+            formatted_text.append("".join(current_block) + "<br><br>")
 
         formatted_response = "".join(formatted_text).strip()
         return formatted_response
@@ -137,6 +161,7 @@ def summarize_file():
 @app.route('/qa', methods=['POST'])
 def qa_file():
     file = request.files.get('file')
+    level = request.form.get('summary_type', 'small')
     
     if not file:
         return jsonify({"error": "No file provided"}), 400
@@ -145,7 +170,7 @@ def qa_file():
     if not text:
         return jsonify({"error": "Failed to extract text from the uploaded file. Make sure it’s a .pdf, .docx, or .pptx"}), 500
 
-    result = generate_qa(text)
+    result = generate_qa(text, level)
     return jsonify({"qa": result})
 
 
