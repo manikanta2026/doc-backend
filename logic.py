@@ -143,6 +143,39 @@ def generate_qa(text, level="small"):
     else:
         return "Response generation failed."
 
+def generate_quiz(text):
+    # Dynamically determine number of questions based on text length
+    word_count = len(text.split())
+    if word_count < 300:
+        num_questions = 3
+    elif word_count < 800:
+        num_questions = 5
+    elif word_count < 1500:
+        num_questions = 7
+    else:
+        num_questions = 10
+
+    prompt = (
+        f"Based on the following text, generate {num_questions} multiple-choice quiz questions. "
+        f"Do NOT copy sentences directly from the text. Instead, create questions and answer options that require logical thinking and understanding, not just recall. "
+        f"Each question should have 4 options (A, B, C, D), only one of which is correct. "
+        f"Make the distractors plausible and thought-provoking, not just obviously wrong or copied from the text. "
+        f"Format:\n"
+        f"Question: [Your question]\n"
+        f"A) [Option A]\n"
+        f"B) [Option B]\n"
+        f"C) [Option C]\n"
+        f"D) [Option D]\n"
+        f"Correct Answer: [A, B, C, or D]\n\n"
+        f"Text:\n{text}\n"
+    )
+    response = model.generate_content(prompt)
+    if response:
+        quiz_text = response.text.strip()
+        return quiz_text
+    else:
+        return "Quiz generation failed."
+
 @app.route('/summary', methods=['POST'])
 def summarize_file():
     file = request.files.get('file')
@@ -172,6 +205,20 @@ def qa_file():
 
     result = generate_qa(text, level)
     return jsonify({"qa": result})
+
+@app.route('/quiz', methods=['POST'])
+def quiz_file():
+    file = request.files.get('file')
+
+    if not file:
+        return jsonify({"error": "No file provided"}), 400
+
+    text = extract_text(file)
+    if not text:
+        return jsonify({"error": "Failed to extract text from the uploaded file. Make sure it’s a .pdf, .docx, or .pptx"}), 500
+
+    result = generate_quiz(text)
+    return jsonify({"quiz": result})
 
 
 if __name__ == "__main__":
