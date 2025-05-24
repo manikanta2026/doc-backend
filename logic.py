@@ -160,6 +160,7 @@ def generate_quiz(text):
         f"Do NOT copy sentences directly from the text. Instead, create questions and answer options that require logical thinking and understanding, not just recall. "
         f"Each question should have 4 options (A, B, C, D), only one of which is correct. "
         f"Make the distractors plausible and thought-provoking, not just obviously wrong or copied from the text. "
+        f"IMPORTANT: For each question, use the exact label 'Question:' (without any number or extra text), followed by the question. "
         f"Format:\n"
         f"Question: [Your question]\n"
         f"A) [Option A]\n"
