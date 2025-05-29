@@ -16,7 +16,7 @@ if not api_key:
     raise ValueError("API key for Generative AI is not set. Please ensure that 'GOOGLE_API_KEY' is set in your .env file or as an environment variable.")
 
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel("Gemini 2.5 Flash Preview 05-20")
+model = genai.GenerativeModel("gemini-2.5-flash-preview-05-20")
 
 app = Flask(__name__)
 CORS(app)
